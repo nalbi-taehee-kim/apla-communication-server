@@ -1,4 +1,5 @@
 import { WebSocketApi, WebSocketStage } from '@aws-cdk/aws-apigatewayv2-alpha';
+import { WebSocketLambdaAuthorizer } from '@aws-cdk/aws-apigatewayv2-authorizers-alpha';
 import { WebSocketLambdaIntegration } from '@aws-cdk/aws-apigatewayv2-integrations-alpha';
 import { TypeScriptCode } from '@mrgrain/cdk-esbuild';
 import * as cdk from 'aws-cdk-lib';
@@ -36,10 +37,20 @@ export class AplaCommunicationStack extends cdk.Stack {
     });
     connectionTable.grantReadWriteData(connectionHandler);
 
-    const api = new WebSocketApi(this, 'WebSocketApi', {
+    const verifyTokenHandlerCode = new TypeScriptCode(join(lambdaPath, 'verify-token.ts'))
+    const verifyTokenHandler = new aws_lambda.Function(this, 'VerifyTokenHandler', {
+        runtime: cdk.aws_lambda.Runtime.NODEJS_18_X,
+        handler: 'verify-token.handler',
+        code: verifyTokenHandlerCode,
+        logRetention: cdk.aws_logs.RetentionDays.FIVE_DAYS,
+    });
+    const verifyTokenAuthorizer = new WebSocketLambdaAuthorizer('VerifyTokenAuthorizer', verifyTokenHandler)
+    
+    const api = new WebSocketApi(this, 'CommunicationWebSocketApi', {
         routeSelectionExpression: '$request.body.action',
         connectRouteOptions: {
-          integration: new WebSocketLambdaIntegration('connect', connectionHandler),
+            authorizer: verifyTokenAuthorizer,
+            integration: new WebSocketLambdaIntegration('connect', connectionHandler),
         },
         disconnectRouteOptions: {
           integration: new WebSocketLambdaIntegration('disconnect', connectionHandler),
@@ -61,10 +72,12 @@ export class AplaCommunicationStack extends cdk.Stack {
             resource: api.apiId,
             resourceName: `${stage.stageName}/**`,
         });
-        handler.addToRolePolicy(new cdk.aws_iam.PolicyStatement({
-            actions: ['execute-api:ManageConnections'],
-            resources: [stageArn],
-        }));
+        const stagePermission = new cdk.aws_iam.PolicyStatement({
+            effect: cdk.aws_iam.Effect.ALLOW,
+            actions: ['execute-api:Invoke', 'execute-api:ManageConnections'],
+            resources: [stageArn]
+        })
+        handler.addToRolePolicy(stagePermission);
     }
     addManageConnectionPolicy(prodStage, connectionHandler, this);
     connectionHandler.addEnvironment('WEBSOCKET_ENDPOINT', prodStage.url!);
