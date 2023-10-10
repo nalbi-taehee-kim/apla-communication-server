@@ -1,31 +1,25 @@
 {
   "compilerOptions": {
-    "target": "ES2020",
+    // Settings for Node.js >= 12.9.0
+    "lib": ["es2020"],
     "module": "commonjs",
-    "lib": [
-      "es2020",
-      "dom"
-    ],
-    "declaration": true,
-    "strict": true,
-    "noImplicitAny": true,
-    "strictNullChecks": true,
-    "noImplicitThis": true,
-    "alwaysStrict": true,
+    "target": "es2019",
+
+    // Support some older packages
+    "esModuleInterop": false,
+
+    // Enable super strict setting
+    "strict": false,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": false,
-    "inlineSourceMap": true,
-    "inlineSources": true,
-    "experimentalDecorators": true,
-    "strictPropertyInitialization": false,
-    "typeRoots": [
-      "./node_modules/@types"
-    ]
+    "resolveJsonModule": true,
+
+    // Function code never has to be compiled outside zeit/ncc and ts-jest
+    "rootDir": ".",
+    "noEmit": true
   },
-  "exclude": [
-    "node_modules",
-    "cdk.out"
-  ]
+  "include": ["**/*.ts"],
+  "exclude": ["cdk.out", "node_modules"]
 }
