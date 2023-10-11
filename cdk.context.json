@@ -1,0 +1,14 @@
+{
+  "hosted-zone:account=218279748716:domainName=apla.world:region=ap-northeast-1": {
+    "Id": "/hostedzone/Z059850020SAE69CRB9I8",
+    "Name": "apla.world."
+  },
+  "hosted-zone:account=218279748716:domainName=apla.world:region=ap-northeast-2": {
+    "Id": "/hostedzone/Z059850020SAE69CRB9I8",
+    "Name": "apla.world."
+  },
+  "hosted-zone:account=218279748716:domainName=apla.world:region=us-east-1": {
+    "Id": "/hostedzone/Z059850020SAE69CRB9I8",
+    "Name": "apla.world."
+  }
+}

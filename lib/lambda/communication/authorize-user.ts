@@ -1,25 +1,6 @@
 import { APIGatewayRequestAuthorizerEvent } from "aws-lambda";
-import {verify} from 'jsonwebtoken';
+import { verifyToken } from "../util/verify-token";
 
-const pubkey = '02ace5244aeb11ee90160242ac110002';
-const expectedIss = 'https://api.apla.world';
-
-async function verifyToken(token: string): Promise<[boolean, string]> {
-    const decoded = verify(token, pubkey, { algorithms: ['HS256'] });
-    console.log("decoded", decoded);
-    if (typeof decoded === 'string') {
-        return [false, decoded];
-    }
-    const iss = decoded['iss'];
-    if (typeof iss !== 'string' || iss !== expectedIss) {
-        return [false, 'anonymous'];
-    }
-    const mid = decoded['mid'];
-    if (typeof mid !== 'string') {
-        return [false, 'anonymous'];
-    }
-    return [true, mid];
-}
 
 export async function handler(event, context, callback): Promise<void> {
     console.log('Authorizer event:', JSON.stringify(event, null, 2));

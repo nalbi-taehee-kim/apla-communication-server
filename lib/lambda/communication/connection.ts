@@ -3,15 +3,14 @@ import {AWSError, ApiGatewayManagementApi, DynamoDB} from 'aws-sdk';
 
 const ddb = new DynamoDB.DocumentClient();
 const tableName = process.env.TABLE_NAME || '';
-const websocketEndpoint = process.env.WEBSOCKET_ENDPOINT;
-
-interface ConnectionTableRow {
-    aid: string;
-}
+const endpoint = process.env.API_ENDPOINT.replace('wss://', 'https://');
+const language = process.env.LANGUAGE || 'korean';
 
 const eventTypes = {
+    CONNECT: 'connect',
     REQUEST_USER_LIST: 'requestUserList',
     USER_LIST: 'userList',
+    DISCONNECT: 'disconnect',
 }
 
 async function listUsers() {
@@ -21,52 +20,30 @@ async function listUsers() {
     });
 }
 
-async function buildUserListEvent() {
+async function buildUserListEvent(channelName: string) {
     const usersRow = await listUsers();
+    const st = new Date().getTime();
     return {
         eventType: eventTypes.USER_LIST,
         data: {
-            "channelName": "korean-1",
+            "channelName": channelName,
             "userCount": usersRow.length,
-            "language": "ko",
+            "language": language,
             "users": usersRow
-        }
+        },
+        st
     }
 }
 
-function buildConnectEvent(source: string, connectionId: string) {
+function buildConnectEvent(source: string) {
     return {
-        eventType: 'connect',
+        eventType: eventTypes.CONNECT,
         source,
-        timestamp: new Date().getTime()
+        t: new Date().getTime()
     }
 }
 
-async function broadcastExceptSelf(api: ApiGatewayManagementApi, data: string, ddb: DynamoDB.DocumentClient, connectionId: string) {
-    const { Items } = await ddb.scan({ TableName: tableName }).promise();
-    if (Items === undefined) {
-        return;
-    }
-    const postCalls = Items.map(async ({ connectionId: targetConnectionId }) => {
-        if (targetConnectionId === connectionId) {
-            return;
-        }
-        try {
-            await api.postToConnection({ ConnectionId: targetConnectionId, Data: data }).promise();
-        } catch (e) {
-            const error = e as AWSError;
-            if (error.statusCode === 410) {
-                console.log(`Found stale connection, deleting ${targetConnectionId}`);
-                await ddb.delete({ TableName: tableName, Key: { connectionId: targetConnectionId } }).promise();
-            } else {
-                throw e;
-            }
-        }
-    });
-    await Promise.all(postCalls);
-}
-
-async function broadcastMessage(api: ApiGatewayManagementApi, data: string, ddb: DynamoDB.DocumentClient) {
+async function broadcastMessage({api, data, ddb, connectionId}: {api: ApiGatewayManagementApi, data: string, ddb: DynamoDB.DocumentClient, connectionId: string}) {
     const { Items } = await ddb.scan({ TableName: tableName }).promise();
     if (Items === undefined) {
         return;
@@ -89,16 +66,16 @@ async function broadcastMessage(api: ApiGatewayManagementApi, data: string, ddb:
 
 export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event, context, callback) => {
     const routeKey = event.requestContext.routeKey;
-    const endpoint = event.requestContext.domainName + '/' + event.requestContext.stage;
     const apigwManagementApi = new ApiGatewayManagementApi({
         apiVersion: '2018-11-29',
         endpoint: endpoint
     });
+    const connectionId = event.requestContext.connectionId;
     switch (routeKey) {
         case '$connect':
             const aid = (event.requestContext as any)!.authorizer?.principalId as string;
-            const connectEvent = buildConnectEvent(aid, event.requestContext.connectionId);
-            const broadcast = broadcastExceptSelf(apigwManagementApi, JSON.stringify(connectEvent), ddb, event.requestContext.connectionId);
+            const connectEvent = buildConnectEvent(aid);
+            const broadcast = broadcastMessage({api: apigwManagementApi, data: JSON.stringify(connectEvent), ddb, connectionId});
             const ddbPut = ddb.put({
                 TableName: tableName,
                 Item: {
@@ -111,8 +88,10 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event, context,
         case '$disconnect':
             await ddb.delete({
                 TableName: tableName,
-                Key: { connectionId: event.requestContext.connectionId }
+                Key: { connectionId: connectionId }
             }).promise();
+            const data = JSON.stringify({ eventType: eventTypes.DISCONNECT, source: connectionId, st: new Date().getTime() });
+            await broadcastMessage({api: apigwManagementApi, data, ddb, connectionId});
             return { statusCode: 200, body: 'Disconnected.' };
         case '$default':
             const postData = event.body;
@@ -120,14 +99,15 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event, context,
                 const parsed = JSON.parse(postData);
                 const { eventType } = parsed;
                 if (eventType === eventTypes.REQUEST_USER_LIST) {
-                    const userList = await buildUserListEvent();
-                    await apigwManagementApi.postToConnection({ ConnectionId: event.requestContext.connectionId, Data: JSON.stringify(userList)}).promise();
+                    const channelName = `${language}-1`;
+                    const userList = await buildUserListEvent(channelName);
+                    await apigwManagementApi.postToConnection({ ConnectionId: connectionId, Data: JSON.stringify(userList)}).promise();
                     return { statusCode: 200, body: 'Data sent.'};
                 }
             } catch (e) {   
                 console.log('Error parsing JSON', e);
             }
-            await broadcastMessage(apigwManagementApi, postData, ddb);
+            await broadcastMessage({api: apigwManagementApi, data: postData, ddb, connectionId});
             return { statusCode: 200, body: 'Data sent.'};
         default:
             throw new Error(`Unsupported route: "${routeKey}"`);

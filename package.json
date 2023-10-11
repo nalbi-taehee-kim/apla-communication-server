@@ -7,7 +7,7 @@
   "scripts": {
     "watch": "tsc -w",
     "test": "jest",
-    "deploy": "cdk deploy --all"
+    "deploy": "cdk deploy --all --require-approval never"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.124",
