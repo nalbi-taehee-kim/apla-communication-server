@@ -9,20 +9,21 @@ export async function handler(event, context, callback): Promise<void> {
         callback(null, policy);
         return;
     }
-    //const token = authorization.split(' ')[1];
-    const token = authorization;
-    if (token === undefined) {
-        const policy = generateDenyPolicy(event, 'anonymous');
-        callback(null, policy);
-        return;
-    }
-    console.log("token", token);
-    const [verified, mid] = await verifyToken(token);
-    if (!verified) {
-        const policy = generateDenyPolicy(event, mid);
-        callback(null, policy);
-        return;
-    }
+    // //const token = authorization.split(' ')[1];
+    // const token = authorization;
+    // if (token === undefined) {
+    //     const policy = generateDenyPolicy(event, 'anonymous');
+    //     callback(null, policy);
+    //     return;
+    // }
+    // console.log("token", token);
+    // const [verified, mid] = await verifyToken(token);
+    // if (!verified) {
+    //     const policy = generateDenyPolicy(event, mid);
+    //     callback(null, policy);
+    //     return;
+    // }
+    const mid = authorization;
     const policy = generateAllowPolicy(event, mid);
     callback(null, policy);
 }

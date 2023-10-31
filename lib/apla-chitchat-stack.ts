@@ -33,20 +33,39 @@ export class AplaChitchatStack extends cdk.Stack {
         billingMode: aws_dynamodb.BillingMode.PAY_PER_REQUEST,
     });
 
+    connectionTable.addGlobalSecondaryIndex({
+        indexName: "channel-name-index",
+        partitionKey: { name: "channelName", type: aws_dynamodb.AttributeType.STRING },
+        projectionType: aws_dynamodb.ProjectionType.ALL
+    })
+
+    connectionTable.addGlobalSecondaryIndex({
+        indexName: "aid-index",
+        partitionKey: { name: "aid", type: aws_dynamodb.AttributeType.STRING },
+        projectionType: aws_dynamodb.ProjectionType.ALL
+    })
+
+    const channelTableArn = props?.channelTableArn;
+    if (!channelTableArn) {
+      throw new Error("channelTableArn is required");
+    }
+    const channelTable = aws_dynamodb.Table.fromTableArn(this, "ChannelTable", channelTableArn);
+
     const connectionHandlerCode = new TypeScriptCode(join(lambdaPath, 'connection.ts'))
     const connectionHandler = new aws_lambda.Function(this, 'ChitchatWebSocketHandler', {
         runtime: cdk.aws_lambda.Runtime.NODEJS_18_X,
         handler: 'connection.handler',
         code: connectionHandlerCode, // lambda 폴더에 코드 저장
         environment: {
-          TABLE_NAME: connectionTable.tableName,
+          CONNECTION_TABLE_NAME: connectionTable.tableName,
+          CHANNEL_TABLE_NAME: channelTable.tableName,
           WEBSOCKET_ENDPOINT: 'WEBSOCKET_ENDPOINT_PLACEHOLDER', // 이 값은 나중에 설정됩니다.
           API_ENDPOINT: 'API_ENDPOINT_PLACEHOLDER', // 이 값은 나중에 설정됩니다.
-          LANGUAGE: props.language,
         },
         logRetention: cdk.aws_logs.RetentionDays.FIVE_DAYS,
     });
     connectionTable.grantReadWriteData(connectionHandler);
+    channelTable.grantReadWriteData(connectionHandler);
 
     const authorizeUserCode = new TypeScriptCode(join(lambdaPath, 'authorize-user.ts'))
     const authorizeUserHandler = new aws_lambda.Function(this, 'ChitchatAuthorizeUserHandler', {
@@ -55,7 +74,9 @@ export class AplaChitchatStack extends cdk.Stack {
         code: authorizeUserCode,
         logRetention: cdk.aws_logs.RetentionDays.FIVE_DAYS,
     });
-    const userAuthorizer = new WebSocketLambdaAuthorizer('UserAuthorizer', authorizeUserHandler)
+    const userAuthorizer = new WebSocketLambdaAuthorizer('UserAuthorizer', authorizeUserHandler, {
+        identitySource: ['route.request.querystring.token'],
+    })
     
     const websocketApi = new WebSocketApi(this, 'ChitchatWebSocketApi', {
         routeSelectionExpression: '$request.body.action',
@@ -118,6 +139,7 @@ export class AplaChitchatStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'WebSocketURL', {
         value: aRecord.domainName
     });
+
     // The code that defines your stack goes here
 
     // example resource

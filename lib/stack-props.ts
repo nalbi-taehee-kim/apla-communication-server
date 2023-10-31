@@ -2,7 +2,7 @@ import * as cdk from 'aws-cdk-lib';
 
 export interface AplaChitchatStackProps extends cdk.StackProps {
     certificateArn: string;
-    language: string;
+    channelTableArn: string;
 }
 
 export interface AplaMatchingChannelsStackProps extends cdk.StackProps {

@@ -1,30 +1,19 @@
-import { APIGatewayRequestAuthorizerEvent } from "aws-lambda";
-import { verifyToken } from "../util/verify-token";
 
-export async function handler(event, context, callback): Promise<void> {
+import { APIGatewayRequestAuthorizerEvent } from "aws-lambda";
+const adminKey = process.env.ADMIN_KEY || '';
+
+export const handler = async (event, context, callback) => {
     console.log('Authorizer event:', JSON.stringify(event, null, 2));
-    const authorization = event.queryStringParameters.token;
-    if (authorization === undefined) {
+    const key = event.headers?.authorization;
+    if (key === undefined || key === '') {
         const policy = generateDenyPolicy(event, 'anonymous');
         callback(null, policy);
-        return;
     }
-    //const token = authorization.split(' ')[1];
-    const token = authorization;
-    if (token === undefined) {
+    if (key !== adminKey) {
         const policy = generateDenyPolicy(event, 'anonymous');
         callback(null, policy);
-        return;
     }
-    console.log("token", token);
-    const [verified, mid] = await verifyToken(token);
-    if (!verified) {
-        const policy = generateDenyPolicy(event, mid);
-        callback(null, policy);
-        return;
-    }
-    const policy = generateAllowPolicy(event, mid);
-    callback(null, policy);
+    const policy = generateAllowPolicy(event, 'admin');
 }
 
 
@@ -40,6 +29,12 @@ function generateAllowPolicy(event: APIGatewayRequestAuthorizerEvent, userId: st
     };
 }
 
+/**
+ * Generates a deny policy for a given API Gateway request authorizer event and user ID.
+ * @param event - The API Gateway request authorizer event.
+ * @param userId - The user ID.
+ * @returns An object containing the principal ID and the generated policy document.
+ */
 function generateDenyPolicy(event: APIGatewayRequestAuthorizerEvent, userId: string) {
     const methodArn = event.methodArn;
     const policyDocument = generatePolicyDocument('Deny', methodArn);

@@ -14,7 +14,7 @@ export async function verifyToken(token: string): Promise<[boolean, string]> {
         if (typeof iss !== 'string' || iss !== expectedIss) {
             return [false, 'anonymous'];
         }
-        const mid = decoded['mid'];
+        const mid = decoded['sub'];
         if (typeof mid !== 'string') {
             return [false, 'anonymous'];
         }

@@ -7,13 +7,16 @@
   "scripts": {
     "watch": "tsc -w",
     "test": "jest",
-    "deploy": "cdk deploy --all --require-approval never"
+    "deploy": "cdk deploy --all --require-approval never",
+    "deploy:channel": "cdk deploy AplaMatchingChannelsStack",
+    "deploy:chitchat-apne2": "cdk deploy AplaChitchatStack-apne2"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.124",
     "@types/jest": "^29.5.1",
     "@types/node": "^20.8.4",
     "aws-cdk": "2.86.0",
+    "dotenv": "^16.3.1",
     "jest": "^29.5.0",
     "ts-jest": "^29.1.0",
     "ts-node": "^10.9.1",
@@ -24,6 +27,7 @@
     "@aws-cdk/aws-apigatewayv2-authorizers-alpha": "^2.100.0-alpha.0",
     "@aws-cdk/aws-apigatewayv2-integrations-alpha": "^2.100.0-alpha.0",
     "@mrgrain/cdk-esbuild": "^5.0.2",
+    "agora-token": "^2.0.3",
     "aws-cdk-lib": "2.86.0",
     "aws-sdk": "^2.1472.0",
     "axios": "^1.5.1",
