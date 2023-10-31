@@ -5,6 +5,7 @@ import { AplaMatchingChannelsStack } from '../lib/apla-matching-channels-stack';
 import { AplaChitchatStack } from '../lib/apla-chitchat-stack';
 import { AplaChitchatDevStack } from '../lib/apla-chitchat-dev-stack';
 import 'dotenv/config'
+import { AplaChitchatTestStack } from '../lib/apla-chitchat-test-stack';
 
 const certificateArn = "arn:aws:acm:ap-northeast-2:218279748716:certificate/d8af70cb-373d-4b34-9504-8b7abc990692";
 
@@ -29,6 +30,12 @@ const channelsStack = new AplaMatchingChannelsStack(app, 'AplaMatchingChannelsSt
 });
 
 const ChitchatDevStack = new AplaChitchatDevStack(app, 'AplaChitchatDevStack', {
+  certificateArn: "arn:aws:acm:ap-northeast-2:218279748716:certificate/d8af70cb-373d-4b34-9504-8b7abc990692",
+  channelTableArn: channelsStack.channelTable.tableArn,
+  env: {account: '218279748716', region: 'ap-northeast-2'}
+});
+
+const ChitchatTestStack = new AplaChitchatTestStack(app, 'AplaChitchatTestStack', {
   certificateArn: "arn:aws:acm:ap-northeast-2:218279748716:certificate/d8af70cb-373d-4b34-9504-8b7abc990692",
   channelTableArn: channelsStack.channelTable.tableArn,
   env: {account: '218279748716', region: 'ap-northeast-2'}
