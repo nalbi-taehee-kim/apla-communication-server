@@ -4,7 +4,7 @@ import { ConnctionTableManager, ConnectionRow } from "./connection-table-manager
 const endpoint = process.env.API_ENDPOINT.replace('wss://', 'https://');
 const connectionTableName = process.env.CONNECTION_TABLE_NAME || '';
 const ddb = new DynamoDB.DocumentClient();
-const connectionTableManager = new ConnctionTableManager(ddb, connectionTableName);
+const connectionTableManager = new ConnctionTableManager(connectionTableName);
 
 async function broadcastMessage(api: ApiGatewayManagementApi, message: string, connections: ConnectionRow[], skipConnectionId: string) {
     console.log("broadcastMessage: message", message)
@@ -18,7 +18,7 @@ async function broadcastMessage(api: ApiGatewayManagementApi, message: string, c
             const error = e as AWSError;
             if (error.statusCode === 410) {
                 console.log(`Found stale connection: ${connectionId}`);
-            //     await ddb.delete({ TableName: connectionTableName, Key: { connectionId } }).promise();
+                await ddb.delete({ TableName: connectionTableName, Key: { connectionId } }).promise();
             } else {
                 throw e;
             }

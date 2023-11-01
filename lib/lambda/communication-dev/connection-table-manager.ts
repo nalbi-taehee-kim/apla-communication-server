@@ -6,10 +6,10 @@ export interface ConnectionRow {
 }
 
 export class ConnctionTableManager {
-    ddb: DynamoDB.DocumentClient;
+    ddb = new DynamoDB.DocumentClient();
+    db = new DynamoDB();
     connectionTableName: string;
-    constructor(ddb: DynamoDB.DocumentClient, connectionTableName: string) {
-        this.ddb = ddb;
+    constructor(connectionTableName: string) {
         this.connectionTableName = connectionTableName;
     }
 
@@ -31,6 +31,24 @@ export class ConnctionTableManager {
         }
         console.log("connectionTableManager.getAid: result.Items[0].aid", result.Items[0].aid)
         return result.Items[0].aid;
+    }
+
+    async getConnection(aid: string): Promise<string | undefined> {
+        console.log("connectionTableManager.getConnection: aid", aid)
+        const params = {
+            TableName: this.connectionTableName,
+            KeyConditionExpression: 'aid = :aid',
+            ExpressionAttributeValues: {
+                ':aid': aid
+            }
+        };
+        const result = await this.ddb.query(params).promise();
+        if (result.Items === undefined || result.Items.length === 0) {
+            console.log("connectionTableManager.getConnection: no item found")
+            return undefined;
+        }
+        console.log("connectionTableManager.getConnection: result.Items[0]", result.Items[0])
+        return result.Items[0].connectionId;
     }
 
     async addConnection(connectionId: string, aid: string): Promise<void> {
@@ -76,5 +94,10 @@ export class ConnctionTableManager {
             return [];
         }
         return result.Items as ConnectionRow[];
+    }
+
+    async getUserCount(): Promise<number> {
+        const table = await this.db.describeTable({ TableName: this.connectionTableName }).promise();
+        return table.Table?.ItemCount || 0;
     }
 }

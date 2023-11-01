@@ -66,7 +66,7 @@ async function requestUserListHandler(connectionId: string, api: ApiGatewayManag
         const error = e as AWSError;
         if (error.statusCode === 410) {
             console.log(`Found stale connection: ${connectionId}`);
-            await connectionTableManager.removeConnection(connectionId);
+            //await connectionTableManager.removeConnection(connectionId);
         } else {
             throw e;
         }

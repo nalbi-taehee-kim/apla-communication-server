@@ -7,8 +7,9 @@ const endpoint = process.env.API_ENDPOINT.replace('wss://', 'https://');
 
 const connectionTableName = process.env.CONNECTION_TABLE_NAME || '';
 const broadcastLambdaName = process.env.BROADCAST_LAMBDA_NAME || '';
-const ddb = new DynamoDB.DocumentClient();
-const connectionTableManager = new ConnctionTableManager(ddb, connectionTableName);
+const notifyLambdaName = process.env.NOTIFY_LAMBDA_NAME || '';
+const debugBroadcastMode = process.env.DEBUG_BROADCAST_MODE === 'true';
+const connectionTableManager = new ConnctionTableManager(connectionTableName);
 const lambda = new Lambda();
 
 async function broadcastMessageWithLambda(message: string, connectionId: string) {
@@ -23,28 +24,44 @@ async function broadcastMessageWithLambda(message: string, connectionId: string)
     await lambda.invoke(params).promise();
 }
 
-async function connectHandler(connectionId: string, aid: string, api: ApiGatewayManagementApi) {
+async function notifyMessageWithLambda(message: string, target: string) {
+    const params = {
+        FunctionName: notifyLambdaName,
+        InvocationType: 'Event',
+        Payload: JSON.stringify({
+            message: message,
+            target: target
+        })
+    }
+    await lambda.invoke(params).promise();
+}
+
+async function connectHandler(connectionId: string, aid: string) {
     console.log("connectHandler: connectionId", connectionId)
     const timestamp = new Date().getTime();
+    await connectionTableManager.addConnection(connectionId, aid);
+    const userCount = await connectionTableManager.getUserCount();
     const connectEvent = {
         eventType: eventTypes.CONNECT,
         source: aid,
+        userCount: userCount,
         st: timestamp
     }
-    await connectionTableManager.addConnection(connectionId, aid);
     await broadcastMessageWithLambda(JSON.stringify(connectEvent), connectionId);
     return;
 }
 
-async function disconnectHandler(connectionId: string, aid: string, api: ApiGatewayManagementApi) {
+async function disconnectHandler(connectionId: string, aid: string) {
     console.log("disconnectHandler: connectionId", connectionId)
     const timestamp = new Date().getTime();
+    await connectionTableManager.removeConnection(connectionId);
+    const userCount = await connectionTableManager.getUserCount();
     const disconnectEvent = {
         eventType: eventTypes.DISCONNECT,
         source: aid,
+        userCount: userCount,
         st: timestamp
     }
-    await connectionTableManager.removeConnection(connectionId);
     await broadcastMessageWithLambda(JSON.stringify(disconnectEvent), connectionId);
     return;
 }
@@ -62,8 +79,9 @@ async function requestUserListHandler(connectionId: string, api: ApiGatewayManag
     console.log("requestUserListHandler: aidList", JSON.stringify(aidList));
     const listEvent = {
         eventType: eventTypes.LIST,
+        userCount: aidList.length,
         aidList: aidList,
-        st: timestamp
+        st: timestamp,
     }
     try {
         await api.postToConnection({ ConnectionId: connectionId, Data: JSON.stringify(listEvent)}).promise();
@@ -71,7 +89,7 @@ async function requestUserListHandler(connectionId: string, api: ApiGatewayManag
         const error = e as AWSError;
         if (error.statusCode === 410) {
             console.log(`Found stale connection: ${connectionId}`);
-            await connectionTableManager.removeConnection(connectionId);
+            //await connectionTableManager.removeConnection(connectionId);
         } else {
             throw e;
         }
@@ -90,12 +108,12 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event, context,
     switch (routeKey) {
         case '$connect': {
             const aid = (event.requestContext as any)!.authorizer?.principalId as string;
-            await connectHandler(connectionId, aid, apigwManagementApi);
+            await connectHandler(connectionId, aid);
             return { statusCode: 200, body: 'Connected.'};
         }
         case '$disconnect': {
             const aid = await connectionTableManager.getAid(connectionId);
-            await disconnectHandler(connectionId, aid, apigwManagementApi);
+            await disconnectHandler(connectionId, aid);
             return { statusCode: 200, body: 'Disconnected.' };
         }
         case '$default':
