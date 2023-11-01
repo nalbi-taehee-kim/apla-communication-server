@@ -66,21 +66,20 @@ async function disconnectHandler(connectionId: string, aid: string) {
     return;
 }
 
-async function getUserAidList(connectionId: string) {
-    console.log("getUserAidList: connectionId", connectionId)
-    const connections = (await connectionTableManager.listAllConnections()).map((connection) => ({aid: connection.aid}));
-    console.log("getUserAidList: connections", connections)
-    return connections;
+async function getUserAidList(connectionId: string, limit?: number) {
+    const connections = (await connectionTableManager.listAllConnections(limit)).map((connection) => ({aid: connection.aid}));
+    const userCount = connections.length;
+    return [connections.sort(() => Math.random() - 0.5).slice(0, limit), userCount];
 }
 
-async function requestUserListHandler(connectionId: string, api: ApiGatewayManagementApi) {
+async function requestUserListHandler(connectionId: string, api: ApiGatewayManagementApi, limit?: number) {
     const timestamp = new Date().getTime();
-    const aidList = await getUserAidList(connectionId);
+    const [aidList, userCount] = await getUserAidList(connectionId, limit);
     console.log("requestUserListHandler: aidList", JSON.stringify(aidList));
     const listEvent = {
         eventType: eventTypes.LIST,
-        userCount: aidList.length,
-        aidList: aidList,
+        userCount,
+        aidList,
         st: timestamp,
     }
     try {
@@ -149,6 +148,7 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event, context,
                     return { statusCode: 200, body: 'Ponged.'};
                 } 
                 case eventTypes.REQUEST_LIST: {
+                    const limit = parsedMessage.limit;
                     await requestUserListHandler(connectionId, apigwManagementApi);
                     return { statusCode: 200, body: 'Data sent.'};
                 } 

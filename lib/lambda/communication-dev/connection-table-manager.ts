@@ -82,12 +82,15 @@ export class ConnctionTableManager {
     }
 
     // list except self
-    async listAllConnections(): Promise<ConnectionRow[]> {
+    async listAllConnections(limit?: number): Promise<ConnectionRow[]> {
         console.log("connectionTableManager.listAllConnections")
         // scan all connections
         const params = {
-            TableName: this.connectionTableName
+            TableName: this.connectionTableName,
         };
+        // if (limit !== undefined) {
+        //     params['Limit'] = limit;
+        // }
         const result = await this.ddb.scan(params).promise();
         console.log("result.Items", result.Items);
         if (result.Items === undefined) { 
