@@ -6,10 +6,10 @@ export interface ConnectionRow {
 }
 
 export class ConnctionTableManager {
-    ddb: DynamoDB.DocumentClient;
+    ddb = new DynamoDB.DocumentClient();
+    db = new DynamoDB();
     connectionTableName: string;
-    constructor(ddb: DynamoDB.DocumentClient, connectionTableName: string) {
-        this.ddb = ddb;
+    constructor(connectionTableName: string) {
         this.connectionTableName = connectionTableName;
     }
 
@@ -25,9 +25,25 @@ export class ConnctionTableManager {
         };
         const result = await this.ddb.query(params).promise();
         if (result.Items === undefined || result.Items.length === 0) {
+            console.log("connectionTableManager.getAid: no item found")
             return undefined;
         }
         return result.Items[0].aid;
+    }
+
+    async getConnection(aid: string): Promise<string | undefined> {
+        const params = {
+            TableName: this.connectionTableName,
+            KeyConditionExpression: 'aid = :aid',
+            ExpressionAttributeValues: {
+                ':aid': aid
+            }
+        };
+        const result = await this.ddb.query(params).promise();
+        if (result.Items === undefined || result.Items.length === 0) {
+            return undefined;
+        }
+        return result.Items[0].connectionId;
     }
 
     async addConnection(connectionId: string, aid: string): Promise<void> {
@@ -58,15 +74,24 @@ export class ConnctionTableManager {
     }
 
     // list except self
-    async listAllConnections(): Promise<ConnectionRow[]> {
+    async listAllConnections(limit?: number): Promise<ConnectionRow[]> {
         // scan all connections
         const params = {
-            TableName: this.connectionTableName
+            TableName: this.connectionTableName,
         };
+        // if (limit !== undefined) {
+        //     params['Limit'] = limit;
+        // }
         const result = await this.ddb.scan(params).promise();
+        console.log("result.Items", result.Items);
         if (result.Items === undefined) { 
             return [];
         }
         return result.Items as ConnectionRow[];
+    }
+
+    async getUserCount(): Promise<number> {
+        const table = await this.db.describeTable({ TableName: this.connectionTableName }).promise();
+        return table.Table?.ItemCount || 0;
     }
 }

@@ -53,6 +53,8 @@ export class AplaChitchatTestStack extends cdk.Stack {
           WEBSOCKET_ENDPOINT: 'WEBSOCKET_ENDPOINT_PLACEHOLDER', // 이 값은 나중에 설정됩니다.
           API_ENDPOINT: 'API_ENDPOINT_PLACEHOLDER', // 이 값은 나중에 설정됩니다.
           BROADCAST_LAMBDA_NAME: 'BROADCAST_LAMBDA_NAME_PLACEHOLDER',
+          NOTIFY_LAMBDA_NAME: 'NOTIFY_LAMBDA_NAME_PLACEHOLDER',
+          DEBUG_BROADCAST_MODE: 'false',
         },
         logRetention: cdk.aws_logs.RetentionDays.FIVE_DAYS,
     });
@@ -72,6 +74,21 @@ export class AplaChitchatTestStack extends cdk.Stack {
     connectionTable.grantReadData(broadcastHandler);
     connectionHandler.addEnvironment('BROADCAST_LAMBDA_NAME', broadcastHandler.functionName);
     broadcastHandler.grantInvoke(connectionHandler);
+
+    const notifyHandlerCode = new TypeScriptCode(join(lambdaPath, 'notify.ts'))
+    const notifyHandler = new aws_lambda.Function(this, 'ChitchatNotifyHandler', {
+        runtime: cdk.aws_lambda.Runtime.NODEJS_18_X,
+        handler: 'notify.handler',
+        code: notifyHandlerCode,
+        environment: {
+            CONNECTION_TABLE_NAME: connectionTable.tableName,
+            API_ENDPOINT: 'API_ENDPOINT_PLACEHOLDER', // 이 값은 나중에 설정됩니다.
+        },
+        logRetention: cdk.aws_logs.RetentionDays.FIVE_DAYS,
+    });
+    connectionTable.grantReadData(notifyHandler);
+    connectionHandler.addEnvironment('NOTIFY_LAMBDA_NAME', notifyHandler.functionName);
+    notifyHandler.grantInvoke(connectionHandler);
 
     const authorizeUserCode = new TypeScriptCode(join(lambdaPath, 'authorize-user.ts'))
     const authorizeUserHandler = new aws_lambda.Function(this, 'ChitchatAuthorizeUserHandler', {
@@ -156,6 +173,7 @@ export class AplaChitchatTestStack extends cdk.Stack {
 
     addManageConnectionPolicy(websocketProdStage, connectionHandler, this);
     addManageConnectionPolicy(websocketProdStage, broadcastHandler, this);
+    addManageConnectionPolicy(websocketProdStage, notifyHandler, this);
 
     connectionHandler.addEnvironment('WEBSOCKET_ENDPOINT', websocketProdStage.url!);
     broadcastHandler.addEnvironment('API_ENDPOINT', websocketProdStage.url!);

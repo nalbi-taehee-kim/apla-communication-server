@@ -4,7 +4,7 @@ import { ConnctionTableManager, ConnectionRow } from "./connection-table-manager
 const endpoint = process.env.API_ENDPOINT.replace('wss://', 'https://');
 const connectionTableName = process.env.CONNECTION_TABLE_NAME || '';
 const ddb = new DynamoDB.DocumentClient();
-const connectionTableManager = new ConnctionTableManager(ddb, connectionTableName);
+const connectionTableManager = new ConnctionTableManager(connectionTableName);
 
 async function broadcastMessage(api: ApiGatewayManagementApi, message: string, connections: ConnectionRow[], skipConnectionId: string) {
     const postCalls = connections.map(async ({ connectionId }) => {
