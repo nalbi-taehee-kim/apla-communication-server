@@ -2,6 +2,7 @@ import { APIGatewayProxyWebsocketHandlerV2 } from 'aws-lambda';
 import { AWSError, ApiGatewayManagementApi, DynamoDB, Lambda} from 'aws-sdk';
 import { eventTypes } from '../util/event-types';
 import { ConnctionTableManager, ConnectionRow } from './connection-table-manager';
+import { notifyEvents } from './model/notify-events';
 
 const endpoint = process.env.API_ENDPOINT.replace('wss://', 'https://');
 
@@ -96,6 +97,18 @@ async function requestUserListHandler(connectionId: string, api: ApiGatewayManag
     return;
 }
 
+async function handleNotifyEvent(parsedMessage: Object, connectionId: string) {
+    const st = new Date().getTime();
+    parsedMessage['st'] = st;
+    const target = parsedMessage['target'];
+    if (target === undefined) {
+        console.log("target is undefined");
+        return { statusCode: 200, body: 'Data sent.'};
+    }
+    await notifyMessageWithLambda(JSON.stringify(parsedMessage), target);
+    return { statusCode: 200, body: 'Data sent.'};
+}
+
 export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event, context, callback) => {
     const routeKey = event.requestContext.routeKey;
     const apigwManagementApi = new ApiGatewayManagementApi({
@@ -149,9 +162,21 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event, context,
                 } 
                 case eventTypes.REQUEST_LIST: {
                     const limit = parsedMessage.limit;
-                    await requestUserListHandler(connectionId, apigwManagementApi);
+                    await requestUserListHandler(connectionId, apigwManagementApi, limit);
                     return { statusCode: 200, body: 'Data sent.'};
                 } 
+                case notifyEvents.MATCH: {
+                    handleNotifyEvent(parsedMessage, connectionId);
+                }
+                case notifyEvents.EXTEND_CHAT: {
+                    handleNotifyEvent(parsedMessage, connectionId);
+                }
+                case notifyEvents.MATCH_CANCEL: {
+                    handleNotifyEvent(parsedMessage, connectionId);
+                }
+                case notifyEvents.MATCH_RESPONSE: {
+                    handleNotifyEvent(parsedMessage, connectionId);
+                }
                 default: 
                 {
                     const st = new Date().getTime();
