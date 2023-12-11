@@ -7,7 +7,7 @@ import { aws_dynamodb, aws_lambda } from 'aws-cdk-lib';
 import { Function } from 'aws-cdk-lib/aws-lambda';
 import { Construct } from 'constructs';
 import { join } from 'path';
-import { AplaChitchatStackProps, AplaMatchingChannelsStackProps } from './stack-props';
+import { AplaChitchatStackProps } from './stack-props';
 // import * as sqs from 'aws-cdk-lib/aws-sqs';
 
 export class AplaChitchatDevStack extends cdk.Stack {
@@ -43,6 +43,19 @@ export class AplaChitchatDevStack extends cdk.Stack {
         projectionType: aws_dynamodb.ProjectionType.ALL
     })
 
+    // match source aid, target aid, timestamp, response timestamp, result, reason
+    const matchResultTable = new aws_dynamodb.Table(this, 'ChitchatStatisticsDevTable', {
+        partitionKey: { name: 'source', type: cdk.aws_dynamodb.AttributeType.STRING },
+        removalPolicy: cdk.RemovalPolicy.DESTROY,
+        billingMode: aws_dynamodb.BillingMode.PAY_PER_REQUEST,
+        sortKey: { name: 'target', type: cdk.aws_dynamodb.AttributeType.STRING },
+    });
+    matchResultTable.addGlobalSecondaryIndex({
+        indexName: "timestamp-index",
+        partitionKey: { name: "timestamp", type: aws_dynamodb.AttributeType.NUMBER },
+        projectionType: aws_dynamodb.ProjectionType.ALL
+    });
+
     const connectionHandlerCode = new TypeScriptCode(join(lambdaPath, 'connection.ts'))
     const connectionHandler = new aws_lambda.Function(this, 'ChitchatWebSocketHandler', {
         runtime: cdk.aws_lambda.Runtime.NODEJS_18_X,
@@ -54,6 +67,8 @@ export class AplaChitchatDevStack extends cdk.Stack {
           API_ENDPOINT: 'API_ENDPOINT_PLACEHOLDER', // 이 값은 나중에 설정됩니다.
           BROADCAST_LAMBDA_NAME: 'BROADCAST_LAMBDA_NAME_PLACEHOLDER',
           NOTIFY_LAMBDA_NAME: 'NOTIFY_LAMBDA_NAME_PLACEHOLDER',
+          ADD_MATCH_LAMBDA_NAME: 'ADD_MATCH_LAMBDA_NAME_PLACEHOLDER',
+          SET_MATCH_RESULT_LAMBDA_NAME: 'SET_MATCH_RESULT_LAMBDA_NAME_PLACEHOLDER',
           DEBUG_BROADCAST_MODE: 'false',
         },
         logRetention: cdk.aws_logs.RetentionDays.FIVE_DAYS,
@@ -99,7 +114,7 @@ export class AplaChitchatDevStack extends cdk.Stack {
     });
     const userAuthorizer = new WebSocketLambdaAuthorizer('UserAuthorizer', authorizeUserHandler, {
         identitySource: ['route.request.querystring.token'],
-    })
+    });
     
     const websocketApi = new WebSocketApi(this, 'ChitchatDevWebSocketApi', {
         routeSelectionExpression: '$request.body.action',
@@ -138,6 +153,7 @@ export class AplaChitchatDevStack extends cdk.Stack {
         ),
     })
     connectionHandler.addEnvironment('API_ENDPOINT', websocketProdStage.url!);
+    notifyHandler.addEnvironment('API_ENDPOINT', websocketProdStage.url!);
 
     aRecord.node.addDependency(websocketProdStage);
     aRecord.node.addDependency(domain);

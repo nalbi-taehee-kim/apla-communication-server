@@ -98,6 +98,7 @@ async function requestUserListHandler(connectionId: string, api: ApiGatewayManag
 }
 
 async function handleNotifyEvent(parsedMessage: Object, connectionId: string) {
+    console.log("handleNotifyEvent: parsedMessage", JSON.stringify(parsedMessage));
     const st = new Date().getTime();
     parsedMessage['st'] = st;
     const target = parsedMessage['target'];
@@ -166,16 +167,20 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event, context,
                     return { statusCode: 200, body: 'Data sent.'};
                 } 
                 case notifyEvents.MATCH: {
-                    handleNotifyEvent(parsedMessage, connectionId);
+                    await handleNotifyEvent(parsedMessage, connectionId);
+                    return { statusCode: 200, body: 'Data sent.'};
                 }
                 case notifyEvents.EXTEND_CHAT: {
-                    handleNotifyEvent(parsedMessage, connectionId);
+                    await handleNotifyEvent(parsedMessage, connectionId);
+                    return { statusCode: 200, body: 'Data sent.'};
                 }
                 case notifyEvents.MATCH_CANCEL: {
-                    handleNotifyEvent(parsedMessage, connectionId);
+                    await handleNotifyEvent(parsedMessage, connectionId);
+                    return { statusCode: 200, body: 'Data sent.'};
                 }
                 case notifyEvents.MATCH_RESPONSE: {
-                    handleNotifyEvent(parsedMessage, connectionId);
+                    await handleNotifyEvent(parsedMessage, connectionId);
+                    return { statusCode: 200, body: 'Data sent.'};
                 }
                 default: 
                 {

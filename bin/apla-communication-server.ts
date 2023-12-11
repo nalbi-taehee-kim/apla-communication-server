@@ -30,13 +30,13 @@ const channelsStack = new AplaMatchingChannelsStack(app, 'AplaMatchingChannelsSt
 });
 
 const ChitchatDevStack = new AplaChitchatDevStack(app, 'AplaChitchatDevStack', {
-  certificateArn: "arn:aws:acm:ap-northeast-2:218279748716:certificate/d8af70cb-373d-4b34-9504-8b7abc990692",
+  certificateArn: certificateArn,
   channelTableArn: channelsStack.channelTable.tableArn,
   env: {account: '218279748716', region: 'ap-northeast-2'}
 });
 
 const ChitchatTestStack = new AplaChitchatTestStack(app, 'AplaChitchatTestStack', {
-  certificateArn: "arn:aws:acm:ap-northeast-2:218279748716:certificate/d8af70cb-373d-4b34-9504-8b7abc990692",
+  certificateArn: certificateArn,
   channelTableArn: channelsStack.channelTable.tableArn,
   env: {account: '218279748716', region: 'ap-northeast-2'}
 });

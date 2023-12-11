@@ -138,6 +138,7 @@ export class AplaChitchatTestStack extends cdk.Stack {
         ),
     })
     connectionHandler.addEnvironment('API_ENDPOINT', websocketProdStage.url!);
+    notifyHandler.addEnvironment('API_ENDPOINT', websocketProdStage.url!);
 
     aRecord.node.addDependency(websocketProdStage);
     aRecord.node.addDependency(domain);
