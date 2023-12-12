@@ -3,7 +3,7 @@ import {DynamoDB} from 'aws-sdk';
 const dynamodb = new DynamoDB.DocumentClient();
 const MATCH_RESULT_TABLE_NAME = process.env.MATCH_RESULT_TABLE_NAME;
 
-export const addMatch = async ({
+export const handler = async ({
     source,
     target,
     timestamp,

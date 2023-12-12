@@ -100,10 +100,10 @@ async function handleNotifyEvent(parsedMessage: Object, connectionId: string) {
     const target = parsedMessage['target'];
     if (target === undefined) {
         console.log("target is undefined");
-        return { statusCode: 200, body: 'Data sent.'};
+        return { statusCode: 200, body: 'Target is undefined - skipped Notify handler.'};
     }
     await notifyMessageWithLambda(JSON.stringify(parsedMessage), target);
-    return { statusCode: 200, body: 'Data sent.'};
+    return { statusCode: 200, body: 'Invoked Notify handler.'};
 }
 
 

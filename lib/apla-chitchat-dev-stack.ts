@@ -48,13 +48,37 @@ export class AplaChitchatDevStack extends cdk.Stack {
         partitionKey: { name: 'source', type: cdk.aws_dynamodb.AttributeType.STRING },
         removalPolicy: cdk.RemovalPolicy.DESTROY,
         billingMode: aws_dynamodb.BillingMode.PAY_PER_REQUEST,
-        sortKey: { name: 'target', type: cdk.aws_dynamodb.AttributeType.STRING },
+        sortKey: { name: 'timestamp', type: aws_dynamodb.AttributeType.NUMBER },
     });
     matchResultTable.addGlobalSecondaryIndex({
-        indexName: "timestamp-index",
-        partitionKey: { name: "timestamp", type: aws_dynamodb.AttributeType.NUMBER },
+        indexName: "target-index",
+        partitionKey: { name: "target", type: aws_dynamodb.AttributeType.STRING },
         projectionType: aws_dynamodb.ProjectionType.ALL
     });
+
+    const addMatchHandlerCode = new TypeScriptCode(join(lambdaPath, 'match-result', 'add-match.ts'));
+    const addMatchHandler = new aws_lambda.Function(this, 'ChitchatAddMatchHandler', {
+        runtime: cdk.aws_lambda.Runtime.NODEJS_18_X,
+        handler: 'add-match.handler',
+        code: addMatchHandlerCode,
+        environment: {
+            MATCH_RESULT_TABLE_NAME: matchResultTable.tableName,
+        },
+        logRetention: cdk.aws_logs.RetentionDays.FIVE_DAYS,
+    });
+    matchResultTable.grantReadWriteData(addMatchHandler);
+
+    const setMatchResultHandlerCode = new TypeScriptCode(join(lambdaPath, 'match-result', 'set-match-result.ts'));
+    const setMatchResultHandler = new aws_lambda.Function(this, 'ChitchatSetMatchResultHandler', {
+        runtime: cdk.aws_lambda.Runtime.NODEJS_18_X,
+        handler: 'set-match-result.handler',
+        code: setMatchResultHandlerCode,
+        environment: {
+            MATCH_RESULT_TABLE_NAME: matchResultTable.tableName,
+        },
+        logRetention: cdk.aws_logs.RetentionDays.FIVE_DAYS,
+    });
+    matchResultTable.grantReadWriteData(setMatchResultHandler);
 
     const connectionHandlerCode = new TypeScriptCode(join(lambdaPath, 'connection.ts'))
     const connectionHandler = new aws_lambda.Function(this, 'ChitchatWebSocketHandler', {
@@ -67,13 +91,15 @@ export class AplaChitchatDevStack extends cdk.Stack {
           API_ENDPOINT: 'API_ENDPOINT_PLACEHOLDER', // 이 값은 나중에 설정됩니다.
           BROADCAST_LAMBDA_NAME: 'BROADCAST_LAMBDA_NAME_PLACEHOLDER',
           NOTIFY_LAMBDA_NAME: 'NOTIFY_LAMBDA_NAME_PLACEHOLDER',
-          ADD_MATCH_LAMBDA_NAME: 'ADD_MATCH_LAMBDA_NAME_PLACEHOLDER',
-          SET_MATCH_RESULT_LAMBDA_NAME: 'SET_MATCH_RESULT_LAMBDA_NAME_PLACEHOLDER',
+          ADD_MATCH_LAMBDA_NAME: addMatchHandler.functionName,
+          SET_MATCH_RESULT_LAMBDA_NAME: setMatchResultHandler.functionName,
           DEBUG_BROADCAST_MODE: 'false',
         },
         logRetention: cdk.aws_logs.RetentionDays.FIVE_DAYS,
     });
     connectionTable.grantReadWriteData(connectionHandler);
+    addMatchHandler.grantInvoke(connectionHandler);
+    setMatchResultHandler.grantInvoke(connectionHandler);
 
     const broadcastHandlerCode = new TypeScriptCode(join(lambdaPath, 'broadcast.ts'))
     const broadcastHandler = new aws_lambda.Function(this, 'ChitchatBroadcastHandler', {

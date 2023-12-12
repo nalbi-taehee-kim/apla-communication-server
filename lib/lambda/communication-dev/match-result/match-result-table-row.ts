@@ -1,8 +1,9 @@
 interface  MatchResultTableRow {
     source: string; // partition key
-    target: string; // sort key
-    timestamp: number;
+    target: string; 
+    timestamp: number; // sort key
     responseTimestamp?: number;
+    channelName?: string;
     result?: boolean;
     reason?: string; // reject reason
 }

@@ -9,6 +9,9 @@ const endpoint = process.env.API_ENDPOINT.replace('wss://', 'https://');
 const connectionTableName = process.env.CONNECTION_TABLE_NAME || '';
 const broadcastLambdaName = process.env.BROADCAST_LAMBDA_NAME || '';
 const notifyLambdaName = process.env.NOTIFY_LAMBDA_NAME || '';
+const addMatchLambdaName = process.env.ADD_MATCH_LAMBDA_NAME || '';
+const setMatchResultLambdaName = process.env.SET_MATCH_RESULT_LAMBDA_NAME || '';
+
 const debugBroadcastMode = process.env.DEBUG_BROADCAST_MODE === 'true';
 const connectionTableManager = new ConnctionTableManager(connectionTableName);
 const lambda = new Lambda();
@@ -32,6 +35,52 @@ async function notifyMessageWithLambda(message: string, target: string) {
         Payload: JSON.stringify({
             message: message,
             target: target
+        })
+    }
+    await lambda.invoke(params).promise();
+}
+
+async function addMatchWithLambda(message: string) {
+    const params = {
+        FunctionName: addMatchLambdaName,
+        InvocationType: 'RequestResponse',
+        Payload: JSON.stringify({
+            target: message['target'],
+            source: message['source'],
+            timestamp: message['t']
+        })
+    }
+    await lambda.invoke(params).promise();
+}
+
+async function setMatchResultWithLambda(message: string) {
+    const params = {
+        FunctionName: setMatchResultLambdaName,
+        InvocationType: 'Event',
+        Payload: JSON.stringify({
+            target: message['source'],
+            source: message['target'],
+            timestamp: message['t'],
+            responseTimestamp: message['rt'],
+            channelName: message['channelName'],
+            result: message['isAccept'],
+            reason: message['rejectReason']
+        })
+    }
+    await lambda.invoke(params).promise();
+}
+
+async function setMatchResultAsCancelWithLambda(message: string) {
+    const params = {
+        FunctionName: setMatchResultLambdaName,
+        InvocationType: 'Event',
+        Payload: JSON.stringify({
+            target: message['source'],
+            source: message['target'],
+            timestamp: message['t'],
+            responseTimestamp: message['ct'],
+            result: false,
+            reason: 'canceled'
         })
     }
     await lambda.invoke(params).promise();
@@ -104,10 +153,10 @@ async function handleNotifyEvent(parsedMessage: Object, connectionId: string) {
     const target = parsedMessage['target'];
     if (target === undefined) {
         console.log("target is undefined");
-        return { statusCode: 200, body: 'Data sent.'};
+        return { statusCode: 200, body: 'Target is undefined - skipped Notify handler.'};
     }
     await notifyMessageWithLambda(JSON.stringify(parsedMessage), target);
-    return { statusCode: 200, body: 'Data sent.'};
+    return { statusCode: 200, body: 'Invoked Notify handler.'};
 }
 
 export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event, context, callback) => {
@@ -167,6 +216,7 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event, context,
                     return { statusCode: 200, body: 'Data sent.'};
                 } 
                 case notifyEvents.MATCH: {
+                    await addMatchWithLambda(parsedMessage);
                     await handleNotifyEvent(parsedMessage, connectionId);
                     return { statusCode: 200, body: 'Data sent.'};
                 }
@@ -175,10 +225,12 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event, context,
                     return { statusCode: 200, body: 'Data sent.'};
                 }
                 case notifyEvents.MATCH_CANCEL: {
+                    await setMatchResultAsCancelWithLambda(parsedMessage);
                     await handleNotifyEvent(parsedMessage, connectionId);
                     return { statusCode: 200, body: 'Data sent.'};
                 }
                 case notifyEvents.MATCH_RESPONSE: {
+                    await setMatchResultWithLambda(parsedMessage);
                     await handleNotifyEvent(parsedMessage, connectionId);
                     return { statusCode: 200, body: 'Data sent.'};
                 }
