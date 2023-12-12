@@ -75,8 +75,8 @@ async function setMatchResultAsCancelWithLambda(message: string) {
         FunctionName: setMatchResultLambdaName,
         InvocationType: 'Event',
         Payload: JSON.stringify({
-            target: message['source'],
-            source: message['target'],
+            target: message['target'],
+            source: message['source'],
             timestamp: message['t'],
             responseTimestamp: message['ct'],
             result: false,

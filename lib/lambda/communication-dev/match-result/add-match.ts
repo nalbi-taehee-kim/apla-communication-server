@@ -14,6 +14,7 @@ export const handler = async ({
             source,
             target,
             timestamp,
+            serverTimestamp: Date.now(),
         }
     };
 

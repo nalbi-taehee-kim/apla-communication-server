@@ -1,6 +1,6 @@
-const rejectReasons = [
-    'rejected',
-    'timeout',
-    'canceled',
-    'alreadyOnChat',
-] as const;
+const rejectReasons = {
+    rejected: 'rejected',
+    timeout: 'timeout',
+    canceled: 'canceled',
+    alreadyOnChat: 'alreadyOnChat',
+} as const;

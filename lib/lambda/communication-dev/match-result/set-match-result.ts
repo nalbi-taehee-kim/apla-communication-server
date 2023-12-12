@@ -19,6 +19,7 @@ export const handler = async ({
             target,
             timestamp,
             responseTimestamp,
+            responseServerTimestamp: Date.now(),
             channelName,
             result,
             reason,
@@ -26,6 +27,18 @@ export const handler = async ({
     };
 
     try {
+        const prevResult = await dynamodb.get({
+            TableName: MATCH_RESULT_TABLE_NAME,
+            Key: {
+                source,
+                timestamp
+            },
+            ConsistentRead: true,
+        }).promise();
+        if (prevResult.Item !== undefined && prevResult.Item?.reason !== undefined) {
+            console.log("Match result already exists");
+            return;
+        }
         await dynamodb.put(params).promise();
         console.log('Match result added successfully');
     } catch (error) {
