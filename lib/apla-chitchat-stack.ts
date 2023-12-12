@@ -19,30 +19,10 @@ export class AplaChitchatStack extends cdk.Stack {
       throw new Error("certificateArn is required");
     }
     const certificate = cdk.aws_certificatemanager.Certificate.fromCertificateArn(this, "Certificate", certificateArn);
-    const region = this.region;
-    const domainName = `${region}-chitchat.apla.world`
+    const domainName = `chitchat.apla.world`
     const domain = new DomainName(this, `ChitchatDomain`, {
         domainName: domainName,
         certificate: certificate,
-    })
-
-    const lambdaPath = join(__dirname, 'lambda', 'communication');
-    const connectionTable = new aws_dynamodb.Table(this, 'ChitchatConnectionsTable', {
-        partitionKey: { name: 'connectionId', type: cdk.aws_dynamodb.AttributeType.STRING },
-        removalPolicy: cdk.RemovalPolicy.DESTROY,
-        billingMode: aws_dynamodb.BillingMode.PAY_PER_REQUEST,
-    });
-
-    connectionTable.addGlobalSecondaryIndex({
-        indexName: "channel-name-index",
-        partitionKey: { name: "channelName", type: aws_dynamodb.AttributeType.STRING },
-        projectionType: aws_dynamodb.ProjectionType.ALL
-    })
-
-    connectionTable.addGlobalSecondaryIndex({
-        indexName: "aid-index",
-        partitionKey: { name: "aid", type: aws_dynamodb.AttributeType.STRING },
-        projectionType: aws_dynamodb.ProjectionType.ALL
     })
 
     const channelTableArn = props?.channelTableArn;
@@ -51,21 +31,105 @@ export class AplaChitchatStack extends cdk.Stack {
     }
     const channelTable = aws_dynamodb.Table.fromTableArn(this, "ChannelTable", channelTableArn);
 
+    const lambdaPath = join(__dirname, 'lambda', 'communication-test');
+    const connectionTable = new aws_dynamodb.Table(this, 'ChitchatConnectionsTable', {
+        partitionKey: { name: 'aid', type: cdk.aws_dynamodb.AttributeType.STRING },
+        removalPolicy: cdk.RemovalPolicy.DESTROY,
+        billingMode: aws_dynamodb.BillingMode.PAY_PER_REQUEST,
+    });
+    connectionTable.addGlobalSecondaryIndex({
+        indexName: "connction-id-index",
+        partitionKey: { name: "connectionId", type: aws_dynamodb.AttributeType.STRING },
+        projectionType: aws_dynamodb.ProjectionType.ALL
+    })
+
+    // match source aid, target aid, timestamp, response timestamp, result, reason
+    const matchResultTable = new aws_dynamodb.Table(this, 'ChitchatStatisticsTable', {
+        partitionKey: { name: 'source', type: cdk.aws_dynamodb.AttributeType.STRING },
+        removalPolicy: cdk.RemovalPolicy.DESTROY,
+        billingMode: aws_dynamodb.BillingMode.PAY_PER_REQUEST,
+        sortKey: { name: 'timestamp', type: aws_dynamodb.AttributeType.NUMBER },
+    });
+    matchResultTable.addGlobalSecondaryIndex({
+        indexName: "target-index",
+        partitionKey: { name: "target", type: aws_dynamodb.AttributeType.STRING },
+        projectionType: aws_dynamodb.ProjectionType.ALL
+    });
+
+    const addMatchHandlerCode = new TypeScriptCode(join(lambdaPath, 'match-result', 'add-match.ts'));
+    const addMatchHandler = new aws_lambda.Function(this, 'ChitchatAddMatchHandler', {
+        runtime: cdk.aws_lambda.Runtime.NODEJS_18_X,
+        handler: 'add-match.handler',
+        code: addMatchHandlerCode,
+        environment: {
+            MATCH_RESULT_TABLE_NAME: matchResultTable.tableName,
+        },
+        logRetention: cdk.aws_logs.RetentionDays.FIVE_DAYS,
+    });
+    matchResultTable.grantReadWriteData(addMatchHandler);
+
+    const setMatchResultHandlerCode = new TypeScriptCode(join(lambdaPath, 'match-result', 'set-match-result.ts'));
+    const setMatchResultHandler = new aws_lambda.Function(this, 'ChitchatSetMatchResultHandler', {
+        runtime: cdk.aws_lambda.Runtime.NODEJS_18_X,
+        handler: 'set-match-result.handler',
+        code: setMatchResultHandlerCode,
+        environment: {
+            MATCH_RESULT_TABLE_NAME: matchResultTable.tableName,
+        },
+        logRetention: cdk.aws_logs.RetentionDays.FIVE_DAYS,
+    });
+    matchResultTable.grantReadWriteData(setMatchResultHandler);
+
     const connectionHandlerCode = new TypeScriptCode(join(lambdaPath, 'connection.ts'))
     const connectionHandler = new aws_lambda.Function(this, 'ChitchatWebSocketHandler', {
         runtime: cdk.aws_lambda.Runtime.NODEJS_18_X,
         handler: 'connection.handler',
         code: connectionHandlerCode, // lambda 폴더에 코드 저장
         environment: {
-          CONNECTION_TABLE_NAME: connectionTable.tableName,
-          CHANNEL_TABLE_NAME: channelTable.tableName,
-          WEBSOCKET_ENDPOINT: 'WEBSOCKET_ENDPOINT_PLACEHOLDER', // 이 값은 나중에 설정됩니다.
-          API_ENDPOINT: 'API_ENDPOINT_PLACEHOLDER', // 이 값은 나중에 설정됩니다.
+            CONNECTION_TABLE_NAME: connectionTable.tableName,
+            WEBSOCKET_ENDPOINT: 'WEBSOCKET_ENDPOINT_PLACEHOLDER', // 이 값은 나중에 설정됩니다.
+            API_ENDPOINT: 'API_ENDPOINT_PLACEHOLDER', // 이 값은 나중에 설정됩니다.
+            BROADCAST_LAMBDA_NAME: 'BROADCAST_LAMBDA_NAME_PLACEHOLDER',
+            NOTIFY_LAMBDA_NAME: 'NOTIFY_LAMBDA_NAME_PLACEHOLDER',
+            ADD_MATCH_LAMBDA_NAME: addMatchHandler.functionName,
+            SET_MATCH_RESULT_LAMBDA_NAME: setMatchResultHandler.functionName,
+            DEBUG_BROADCAST_MODE: 'false',
         },
         logRetention: cdk.aws_logs.RetentionDays.FIVE_DAYS,
     });
     connectionTable.grantReadWriteData(connectionHandler);
-    channelTable.grantReadWriteData(connectionHandler);
+    addMatchHandler.grantInvoke(connectionHandler);
+    setMatchResultHandler.grantInvoke(connectionHandler);
+
+    const broadcastHandlerCode = new TypeScriptCode(join(lambdaPath, 'broadcast.ts'))
+    const broadcastHandler = new aws_lambda.Function(this, 'ChitchatBroadcastHandler', {
+        runtime: cdk.aws_lambda.Runtime.NODEJS_18_X,
+        handler: 'broadcast.handler',
+        code: broadcastHandlerCode,
+        environment: {
+            CONNECTION_TABLE_NAME: connectionTable.tableName,
+            API_ENDPOINT: 'API_ENDPOINT_PLACEHOLDER', // 이 값은 나중에 설정됩니다.
+        },
+        logRetention: cdk.aws_logs.RetentionDays.FIVE_DAYS,
+    });
+    connectionTable.grantReadData(broadcastHandler);
+    connectionHandler.addEnvironment('BROADCAST_LAMBDA_NAME', broadcastHandler.functionName);
+    broadcastHandler.grantInvoke(connectionHandler);
+
+    const notifyHandlerCode = new TypeScriptCode(join(lambdaPath, 'notify.ts'))
+    const notifyHandler = new aws_lambda.Function(this, 'ChitchatNotifyHandler', {
+        runtime: cdk.aws_lambda.Runtime.NODEJS_18_X,
+        handler: 'notify.handler',
+        code: notifyHandlerCode,
+        environment: {
+            CONNECTION_TABLE_NAME: connectionTable.tableName,
+            API_ENDPOINT: 'API_ENDPOINT_PLACEHOLDER', // 이 값은 나중에 설정됩니다.
+        },
+        logRetention: cdk.aws_logs.RetentionDays.FIVE_DAYS,
+    });
+    connectionTable.grantReadData(notifyHandler);
+    connectionHandler.addEnvironment('NOTIFY_LAMBDA_NAME', notifyHandler.functionName);
+    notifyHandler.grantInvoke(connectionHandler);
 
     const authorizeUserCode = new TypeScriptCode(join(lambdaPath, 'authorize-user.ts'))
     const authorizeUserHandler = new aws_lambda.Function(this, 'ChitchatAuthorizeUserHandler', {
@@ -93,7 +157,7 @@ export class AplaChitchatStack extends cdk.Stack {
     });
     websocketApi.applyRemovalPolicy(cdk.RemovalPolicy.DESTROY);
 
-    const websocketProdStage = new WebSocketStage(this, 'ChitchatProgStage', {
+    const websocketProdStage = new WebSocketStage(this, 'ChitchatProdStage', {
         webSocketApi: websocketApi,
         stageName: 'prod',
         autoDeploy: true,
@@ -102,7 +166,7 @@ export class AplaChitchatStack extends cdk.Stack {
         }
     });
 
-    const aRecord = new cdk.aws_route53.ARecord(this, `ChitchatARecord-${region}`, {
+    const aRecord = new cdk.aws_route53.ARecord(this, `ChitchatARecord`, {
         zone: cdk.aws_route53.HostedZone.fromLookup(this, 'ChitchatHostedZone', {
             domainName: 'apla.world',
         }),
@@ -115,6 +179,7 @@ export class AplaChitchatStack extends cdk.Stack {
         ),
     })
     connectionHandler.addEnvironment('API_ENDPOINT', websocketProdStage.url!);
+    notifyHandler.addEnvironment('API_ENDPOINT', websocketProdStage.url!);
 
     aRecord.node.addDependency(websocketProdStage);
     aRecord.node.addDependency(domain);
@@ -134,12 +199,29 @@ export class AplaChitchatStack extends cdk.Stack {
         })
         handler.addToRolePolicy(stagePermission);
     }
+    function addInvokePolicy(stage: WebSocketStage, handler: Function, stack: cdk.Stack) {
+        const stageArn = stack.formatArn({
+            service: 'execute-api',
+            resource: websocketApi.apiId,
+            resourceName: `${stage.stageName}/**`,
+        });
+        const stagePermission = new cdk.aws_iam.PolicyStatement({
+            effect: cdk.aws_iam.Effect.ALLOW,
+            actions: ['execute-api:Invoke'],
+            resources: [stageArn]
+        })
+        handler.addToRolePolicy(stagePermission);
+    }
+
     addManageConnectionPolicy(websocketProdStage, connectionHandler, this);
+    addManageConnectionPolicy(websocketProdStage, broadcastHandler, this);
+    addManageConnectionPolicy(websocketProdStage, notifyHandler, this);
+
     connectionHandler.addEnvironment('WEBSOCKET_ENDPOINT', websocketProdStage.url!);
+    broadcastHandler.addEnvironment('API_ENDPOINT', websocketProdStage.url!);
     new cdk.CfnOutput(this, 'WebSocketURL', {
         value: aRecord.domainName
     });
-
     // The code that defines your stack goes here
 
     // example resource

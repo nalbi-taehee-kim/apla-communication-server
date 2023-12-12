@@ -41,6 +41,12 @@ const ChitchatTestStack = new AplaChitchatTestStack(app, 'AplaChitchatTestStack'
   env: {account: '218279748716', region: 'ap-northeast-2'}
 });
 
+const ChitchatStackApne2 = new AplaChitchatStack(app, 'AplaChitchatStack-apne2', {
+  certificateArn: certificateArn,
+  channelTableArn: channelsStack.channelTable.tableArn,
+  env: {account: '218279748716', region: 'ap-northeast-2'}
+});
+
 // const chitchatStackApne2 = new AplaChitchatStack(app, 'AplaChitchatStack-apne2', {
 //   certificateArn: "arn:aws:acm:ap-northeast-2:218279748716:certificate/d8af70cb-373d-4b34-9504-8b7abc990692",
 //   channelTableArn: channelsStack.channelTable.tableArn,
