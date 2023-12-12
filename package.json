@@ -9,6 +9,7 @@
     "test": "jest",
     "deploy": "cdk deploy --all --require-approval never",
     "deploy:dev": "cdk deploy AplaChitchatDevStack",
+    "deploy:test": "cdk deploy AplaChitchatTestStack",
     "deploy:channel": "cdk deploy AplaMatchingChannelsStack",
     "deploy:chitchat-apne2": "cdk deploy AplaChitchatStack-apne2"
   },

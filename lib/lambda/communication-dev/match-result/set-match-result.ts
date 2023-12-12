@@ -12,19 +12,6 @@ export const handler = async ({
     result,
     reason,
 }: MatchResultTableRow) => {
-    const params : DynamoDB.DocumentClient.PutItemInput = {
-        TableName: MATCH_RESULT_TABLE_NAME,
-        Item: {
-            source,
-            target,
-            timestamp,
-            responseTimestamp,
-            responseServerTimestamp: Date.now(),
-            channelName,
-            result,
-            reason,
-        }
-    };
 
     try {
         const prevResult = await dynamodb.get({
@@ -39,6 +26,20 @@ export const handler = async ({
             console.log("Match result already exists");
             return;
         }
+        const params : DynamoDB.DocumentClient.PutItemInput = {
+            TableName: MATCH_RESULT_TABLE_NAME,
+            Item: {
+                source,
+                target,
+                timestamp,
+                serverTimestamp: prevResult.Item?.serverTimestamp,
+                responseTimestamp,
+                responseServerTimestamp: Date.now(),
+                channelName,
+                result,
+                reason,
+            }
+        };
         await dynamodb.put(params).promise();
         console.log('Match result added successfully');
     } catch (error) {
