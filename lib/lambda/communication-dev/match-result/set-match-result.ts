@@ -12,7 +12,6 @@ export const handler = async ({
     result,
     reason,
 }: MatchResultTableRow) => {
-
     try {
         const prevResult = await dynamodb.get({
             TableName: MATCH_RESULT_TABLE_NAME,

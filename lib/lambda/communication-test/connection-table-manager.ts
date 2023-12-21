@@ -3,6 +3,7 @@ import { DynamoDB } from "aws-sdk";
 export interface ConnectionRow {
     aid: string; // partition key
     connectionId: string;
+    connectionTime?: number;
 }
 
 export class ConnctionTableManager {
@@ -52,6 +53,7 @@ export class ConnctionTableManager {
             Item: {
                 aid: aid,
                 connectionId: connectionId,
+                connectionTime: Date.now(),
             }
         } as DynamoDB.DocumentClient.PutItemInput;
         await this.ddb.put(params).promise();
