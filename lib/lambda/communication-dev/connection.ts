@@ -180,12 +180,9 @@ export const handler: APIGatewayProxyWebsocketHandlerV2 = async (event, context,
         }
         case '$default':
             const message = event.body ?? '';
-            if (message === eventTypes.PING) {
-                const pongEvent = {
-                    eventType: eventTypes.PONG,
-                    st: new Date().getTime()
-                }
-                await apigwManagementApi.postToConnection({ ConnectionId: connectionId, Data: JSON.stringify(pongEvent)}).promise();
+            if (message === "ping") {
+                await apigwManagementApi.postToConnection({ ConnectionId: connectionId, Data: "pong"}).promise();
+                await connectionTableManager.updatePing(connectionId);
                 return { statusCode: 200, body: 'Ponged.'};
             }
             let parsedMessage;

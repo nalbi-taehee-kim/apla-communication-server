@@ -8,5 +8,6 @@ export const eventTypes = {
     MATCHED: 'matched',
     PING: 'ping',
     PONG: 'pong',
+    GET_TIME: 'getTime',
 } as const;
 export type EventType = typeof eventTypes[keyof typeof eventTypes];

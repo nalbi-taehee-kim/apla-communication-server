@@ -3,6 +3,8 @@ import { DynamoDB } from "aws-sdk";
 export interface ConnectionRow {
     aid: string; // partition key
     connectionId: string;
+    connectionTime?: number;
+    lastPingTime?: number;
 }
 
 export class ConnctionTableManager {
@@ -58,6 +60,7 @@ export class ConnctionTableManager {
             Item: {
                 aid: aid,
                 connectionId: connectionId,
+                connectionTime: Date.now(),
             }
         } as DynamoDB.DocumentClient.PutItemInput;
         await this.ddb.put(params).promise();
@@ -97,6 +100,26 @@ export class ConnctionTableManager {
             return [];
         }
         return result.Items as ConnectionRow[];
+    }
+
+    async updatePing(connectionId: string): Promise<void> {
+        console.log("connectionTableManager.updatePing: connectionId", connectionId)
+        const aid = await this.getAid(connectionId);
+        if (aid === undefined) {
+            return;
+        }
+        const params = {
+            TableName: this.connectionTableName,
+            Key: {
+                aid: aid,
+            },
+            UpdateExpression: 'set lastPingTime = :lastPingTime',
+            ExpressionAttributeValues: {
+                ':lastPingTime': Date.now(),
+            }
+        };
+        await this.ddb.update(params).promise();
+        return;
     }
 
     async getUserCount(): Promise<number> {
