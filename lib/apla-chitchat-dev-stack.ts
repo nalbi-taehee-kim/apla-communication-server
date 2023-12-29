@@ -40,7 +40,7 @@ export class AplaChitchatDevStack extends cdk.Stack {
     connectionTable.addGlobalSecondaryIndex({
         indexName: "connction-id-index",
         partitionKey: { name: "connectionId", type: aws_dynamodb.AttributeType.STRING },
-        projectionType: aws_dynamodb.ProjectionType.ALL
+        projectionType: aws_dynamodb.ProjectionType.ALL,
     })
 
     // match source aid, target aid, timestamp, response timestamp, result, reason
@@ -95,6 +95,7 @@ export class AplaChitchatDevStack extends cdk.Stack {
           SET_MATCH_RESULT_LAMBDA_NAME: setMatchResultHandler.functionName,
           DEBUG_BROADCAST_MODE: 'false',
         },
+        tracing: aws_lambda.Tracing.ACTIVE,
         logRetention: cdk.aws_logs.RetentionDays.FIVE_DAYS,
     });
     connectionTable.grantReadWriteData(connectionHandler);
@@ -110,6 +111,7 @@ export class AplaChitchatDevStack extends cdk.Stack {
             CONNECTION_TABLE_NAME: connectionTable.tableName,
             API_ENDPOINT: 'API_ENDPOINT_PLACEHOLDER', // 이 값은 나중에 설정됩니다.
         },
+        tracing: aws_lambda.Tracing.ACTIVE,
         logRetention: cdk.aws_logs.RetentionDays.FIVE_DAYS,
     });
     connectionTable.grantReadData(broadcastHandler);
@@ -119,12 +121,13 @@ export class AplaChitchatDevStack extends cdk.Stack {
     const notifyHandlerCode = new TypeScriptCode(join(lambdaPath, 'notify.ts'))
     const notifyHandler = new aws_lambda.Function(this, 'ChitchatNotifyHandler', {
         runtime: cdk.aws_lambda.Runtime.NODEJS_18_X,
-        handler: 'notify.handler',
+        handler: 'notify.handler', 
         code: notifyHandlerCode,
         environment: {
             CONNECTION_TABLE_NAME: connectionTable.tableName,
             API_ENDPOINT: 'API_ENDPOINT_PLACEHOLDER', // 이 값은 나중에 설정됩니다.
         },
+        tracing: aws_lambda.Tracing.ACTIVE,
         logRetention: cdk.aws_logs.RetentionDays.FIVE_DAYS,
     });
     connectionTable.grantReadData(notifyHandler);
@@ -137,6 +140,7 @@ export class AplaChitchatDevStack extends cdk.Stack {
         handler: 'authorize-user.handler',
         code: authorizeUserCode,
         logRetention: cdk.aws_logs.RetentionDays.FIVE_DAYS,
+        tracing: aws_lambda.Tracing.ACTIVE,
     });
     const userAuthorizer = new WebSocketLambdaAuthorizer('UserAuthorizer', authorizeUserHandler, {
         identitySource: ['route.request.querystring.token'],
@@ -163,7 +167,7 @@ export class AplaChitchatDevStack extends cdk.Stack {
         autoDeploy: true,
         domainMapping: {
             domainName: domain,
-        }
+        },
     });
 
     const aRecord = new cdk.aws_route53.ARecord(this, `ChitchatARecord-dev`, {
