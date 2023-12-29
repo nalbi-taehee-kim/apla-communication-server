@@ -65,6 +65,7 @@ export class AplaChitchatTestStack extends cdk.Stack {
             MATCH_RESULT_TABLE_NAME: matchResultTable.tableName,
         },
         logRetention: cdk.aws_logs.RetentionDays.FIVE_DAYS,
+        tracing: aws_lambda.Tracing.ACTIVE,
     });
     matchResultTable.grantReadWriteData(addMatchHandler);
 
@@ -77,6 +78,7 @@ export class AplaChitchatTestStack extends cdk.Stack {
             MATCH_RESULT_TABLE_NAME: matchResultTable.tableName,
         },
         logRetention: cdk.aws_logs.RetentionDays.FIVE_DAYS,
+        tracing: aws_lambda.Tracing.ACTIVE,
     });
     matchResultTable.grantReadWriteData(setMatchResultHandler);
 
@@ -96,6 +98,7 @@ export class AplaChitchatTestStack extends cdk.Stack {
             DEBUG_BROADCAST_MODE: 'false',
         },
         logRetention: cdk.aws_logs.RetentionDays.FIVE_DAYS,
+        tracing: aws_lambda.Tracing.ACTIVE,
     });
     connectionTable.grantReadWriteData(connectionHandler);
     addMatchHandler.grantInvoke(connectionHandler);
@@ -111,6 +114,7 @@ export class AplaChitchatTestStack extends cdk.Stack {
             API_ENDPOINT: 'API_ENDPOINT_PLACEHOLDER', // 이 값은 나중에 설정됩니다.
         },
         logRetention: cdk.aws_logs.RetentionDays.FIVE_DAYS,
+        tracing: aws_lambda.Tracing.ACTIVE,
     });
     connectionTable.grantReadData(broadcastHandler);
     connectionHandler.addEnvironment('BROADCAST_LAMBDA_NAME', broadcastHandler.functionName);
@@ -126,6 +130,7 @@ export class AplaChitchatTestStack extends cdk.Stack {
             API_ENDPOINT: 'API_ENDPOINT_PLACEHOLDER', // 이 값은 나중에 설정됩니다.
         },
         logRetention: cdk.aws_logs.RetentionDays.FIVE_DAYS,
+        tracing: aws_lambda.Tracing.ACTIVE,
     });
     connectionTable.grantReadData(notifyHandler);
     connectionHandler.addEnvironment('NOTIFY_LAMBDA_NAME', notifyHandler.functionName);
@@ -137,6 +142,7 @@ export class AplaChitchatTestStack extends cdk.Stack {
         handler: 'authorize-user.handler',
         code: authorizeUserCode,
         logRetention: cdk.aws_logs.RetentionDays.FIVE_DAYS,
+        tracing: aws_lambda.Tracing.ACTIVE,
     });
     const userAuthorizer = new WebSocketLambdaAuthorizer('UserAuthorizer', authorizeUserHandler, {
         identitySource: ['route.request.querystring.token'],

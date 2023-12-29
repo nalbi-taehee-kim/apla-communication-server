@@ -65,6 +65,7 @@ export class AplaChitchatDevStack extends cdk.Stack {
             MATCH_RESULT_TABLE_NAME: matchResultTable.tableName,
         },
         logRetention: cdk.aws_logs.RetentionDays.FIVE_DAYS,
+        tracing: aws_lambda.Tracing.ACTIVE,
     });
     matchResultTable.grantReadWriteData(addMatchHandler);
 
@@ -77,6 +78,7 @@ export class AplaChitchatDevStack extends cdk.Stack {
             MATCH_RESULT_TABLE_NAME: matchResultTable.tableName,
         },
         logRetention: cdk.aws_logs.RetentionDays.FIVE_DAYS,
+        tracing: aws_lambda.Tracing.ACTIVE,
     });
     matchResultTable.grantReadWriteData(setMatchResultHandler);
 
